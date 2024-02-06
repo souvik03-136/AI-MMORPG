@@ -14,5 +14,10 @@ maze_result = generate_dnd_maze
 
 
 def play(user_input):
-    completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": user_input}])
+    maze1 = f"The player navigates through the maze using the following commands: w (up), a (left), s (down), d (right). "\
+          f"Based on the command, describe the scenario in the maze or provide the description of the player's current position. "\
+          f"Initially, the maze description or design looks like this: {maze_result}. "\
+          f"User Input: {user_input}"
+
+    completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content":maze1}])
     return completion.choices[0].message.content
