@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D&D Chat and Commands</title>
+</head>
+<body>
+    <h1>Welcome to the D&D Chat Application</h1>
+
+    <div>
+        <h2>Lobby</h2>
+        <ul id="lobby-players"></ul>
+        <form id="join-lobby-form">
+            <button type="button" onclick="joinLobby()">Join Lobby</button>
+        </form>
+    </div>
+
+    <div>
+        <h2>Chat</h2>
+        <ul id="chat-messages"></ul>
+        <form id="chat-form">
+            <input type="text" id="message-input" placeholder="Type your message...">
+            <button type="button" onclick="sendMessage()">Send</button>
+        </form>
+    </div>
+
+    <div>
+        <h2>D&D Commands</h2>
+        <ul id="command-list"></ul>
+        <form id="command-form">
+            <input type="text" id="command-input" placeholder="Enter your D&D command...">
+            <button type="button" onclick="sendCommand()">Send Command</button>
+            <button type="button" onclick="generateMaze()">Generate Maze</button>
+        </form>
+        <p id="command-result"></p>
+    </div>
+
+    <div>
+        <h2>D&D Maze</h2>
+        <pre id="maze-display"></pre>
+        <ul id="dnd-commands-list"></ul>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+        var playerId = '';
+        var lobbyId = '';
+        var maze = '';
+
+        socket.on('player_id', function(data) {
+            playerId = data.player_id;
+            console.log('Your Player ID:', playerId);
+        });
+
+        socket.on('lobby_players', function(data) {
+            updateLobbyPlayers(data.players);
+        });
+
+        socket.on('chat_message', function(data) {
+            appendChatMessage(data.player_id, data.message);
+        });
+
+        socket.on('game_turn', function(data) {
+            appendChatMessage(data.player_id, 'Game Turn: ' + data.turn_message);
+        });
+
+        socket.on('invalid_turn', function(data) {
+            appendChatMessage(data.player_id, 'Invalid Turn: ' + data.message);
+        });
+
+        socket.on('game_command', function(data) {
+            if (data.command.startsWith('D&D Maze:')) {
+                updateMaze(data.command.substring(9));
+            } else {
+                appendCommand(data.player_id, data.command);
+            }
+        });
+
+        // Handle the result from play_command
+        socket.on('play_command_result', function(data) {
+            console.log('Result from play_command:', data.result);
+            // Display the result on the webpage
+            document.getElementById('command-result').textContent = data.result;
+        });
+
+        function updateLobbyPlayers(players) {
+            var lobbyPlayersList = document.getElementById('lobby-players');
+            lobbyPlayersList.innerHTML = '';
+
+            players.forEach(function(player) {
+                var listItem = document.createElement('li');
+                listItem.textContent = player;
+                lobbyPlayersList.appendChild(listItem);
+            });
+        }
+
+        function appendChatMessage(playerId, message) {
+            var chatMessagesList = document.getElementById('chat-messages');
+            var listItem = document.createElement('li');
+            listItem.textContent = playerId + ': ' + message;
+            chatMessagesList.appendChild(listItem);
+        }
+
+        function sendCommand() {
+            var commandInput = document.getElementById('command-input');
+            var command = commandInput.value.trim();
+
+            if (command !== '') {
+                socket.emit('command', { 'player_id': playerId, 'lobby_id': lobbyId, 'command': command });
+                commandInput.value = '';
+            }
+        }
+
+        function appendCommand(playerId, command) {
+            var commandList = document.getElementById('command-list');
+            var listItem = document.createElement('li');
+            listItem.textContent = playerId + ': ' + command;
+            commandList.appendChild(listItem);
+        }
+
+        function sendMessage() {
+            var messageInput = document.getElementById('message-input');
+            var message = messageInput.value.trim();
+
+            if (message !== '') {
+                socket.emit('chat_message', { 'player_id': playerId, 'lobby_id': lobbyId, 'message': message });
+                messageInput.value = '';
+            }
+        }
+
+        function updateMaze(mazeContent) {
+            var mazeDisplay = document.getElementById('maze-display');
+            maze = mazeContent;
+            mazeDisplay.textContent = maze;
+
+            // Add the maze description to the D&D Commands list
+            var dndCommandsList = document.getElementById('dnd-commands-list');
+            var listItem = document.createElement('li');
+            listItem.textContent = 'D&D Maze: ' + maze;
+            dndCommandsList.appendChild(listItem);
+        }
+
+        // Function to join the lobby
+        function joinLobby() {
+            // Customize this function to get the lobby ID as needed
+
+            // Using a prompt to get the lobby ID
+            var enteredLobbyId = prompt('Enter Lobby ID:');
+
+            // Check if the entered lobby ID is not empty
+            if (enteredLobbyId.trim() !== '') {
+                // Assign the entered lobby ID to the global variable
+                lobbyId = enteredLobbyId;
+
+                // Emit the join_lobby event to the server
+                socket.emit('join_lobby', { 'player_id': playerId, 'lobby_id': lobbyId });
+            } else {
+                // Handle the case where the entered lobby ID is empty or canceled
+                alert('Invalid Lobby ID. Please try again.');
+            }
+        }
+
+        // Function to generate D&D Maze
+        function generateMaze() {
+            socket.emit('command', { 'player_id': playerId, 'lobby_id': lobbyId, 'command': '/generate_maze' });
+        }
+    </script>
+</body>
+</html>
